@@ -4,6 +4,8 @@ export type ChildRecordStatus = 'active' | 'replacing' | 'replaced' | 'cancelled
 
 export interface User {
   userId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Subscription {
