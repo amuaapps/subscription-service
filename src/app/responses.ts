@@ -27,6 +27,7 @@ export interface SubscriptionResponse {
 }
 
 export interface ChildRecordResponse {
+  subscriptionId: string;
   childId: string;
   status: string;
   startDate: string;
@@ -52,6 +53,7 @@ export function mapSubscriptionToResponse(subscription: Subscription): Subscript
     status: subscription.status,
     metadata: subscription.metadata,
     childRecords: subscription.childRecords?.map((child) => ({
+      subscriptionId: subscription.subscriptionId,
       childId: child.childId,
       status: child.status,
       startDate: child.startDate,

@@ -52,6 +52,7 @@ describe('mapSubscriptionToResponse', () => {
 
     expect(response.childRecords).toHaveLength(1);
     expect(response.childRecords?.[0]).toEqual({
+      subscriptionId: '223e4567-e89b-12d3-a456-426614174000',
       childId: 'ABC-123456-7890',
       status: 'active',
       startDate: '2024-01-01',
