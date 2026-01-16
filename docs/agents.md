@@ -1,4 +1,4 @@
-# agents.md — Amua Apps Open Source Coding Standards & OSS Setup (v1.0.0)
+# agents.md — Amua Apps Open Source Coding Standards & OSS Setup (v1.1.0)
 
 **Document version:** v1.0.0  
 **Status:** Active  
@@ -236,7 +236,7 @@ Rules:
 - Use a typed config module, e.g.:
   ```ts
   export const config = {
-    env: getEnvVar("NODE_ENV", ["development", "staging", "production"]),
+    env: getEnvVar("NODE_ENV", ["dev", "staging", "prod"]),
   } as const;
   ```
 
@@ -293,36 +293,245 @@ All UI must meet WCAG AA at minimum:
 
 ## 7. Testing Standards (Jest)
 
-We use Jest for unit and integration tests. Pipelines MUST FAIL if these fail.
+We use Jest as the default test runner for Node.js and Next.js/React.
+Pipelines MUST FAIL if required test suites fail.
 
-### 7.1 General Rules
-Every new feature should include:
-- Unit tests for core logic.
-- Integration tests for critical paths.
+Testing is structured in layers to keep complexity low while still covering infrastructure-facing behavior:
 
-Tests must be deterministic and not depend on external network calls:
-- Mock external services or use local test doubles.
+- **Unit tests (fast, deterministic):** domain logic + orchestration using fakes.
+- **Component tests (medium):** real DB or dependencies via disposable environments (where practical).
+- **Release/Green-gate tests (slowest, highest confidence):** run post-deploy against **real infrastructure** in the green environment. No mocking of real dependencies.
 
-### 7.2 Structure
-- Mirror `src/` structure in `tests/`.
-- Test files: `*.test.ts` or `*.spec.ts`.
-- Descriptions should be behavior-focused:
+---
+
+### 7.1 Principles
+
+**1) Keep unit tests deterministic**
+- Unit tests MUST NOT depend on external network calls.
+- Unit tests MUST run offline and deterministically.
+
+**2) Test behavior, not implementation**
+- Prefer assertions on outcomes (responses, persisted state, emitted events) over internal function calls.
+- Avoid deep mocks of SDK internals. Mock/fake at our boundaries instead.
+
+**3) Separate “infra definition” from “runtime behavior”**
+- Infrastructure-as-Code (IaC) is validated using IaC tools (validate/lint/security scan/plan/what-if).
+- Runtime behavior is validated through component and release tests.
+
+**4) Prefer fakes over mocks**
+- Use small in-memory fakes for boundaries (queue, blob store, repository, clock, id generator).
+- Use mocks sparingly, primarily to assert a boundary interaction that cannot reasonably be faked.
+
+**5) Keep release tests small**
+- Release/green-gate tests must be minimal, stable, and time-bounded. They gate traffic flip.
+
+---
+
+### 7.2 Test Suites and When They Run
+
+We maintain separate suites with explicit intent. Each suite is a different signal.
+
+#### 7.2.1 Unit Tests (`test:unit`)
+**Purpose:** Fast feedback; validate domain logic and orchestration.
+**Runs:** Every PR and every build.
+
+Rules:
+- No external network calls.
+- Use fakes/test doubles for ports (DB, queue, blob, secrets, HTTP clients).
+- High coverage expected for core logic.
+
+#### 7.2.2 Component Tests (`test:component`)
+**Purpose:** Validate adapter behavior with real dependencies in disposable environments.
+**Runs:** Every PR (if fast enough) or at least on main.
+
+Examples:
+- Real DB via disposable environment (preferred) or dedicated ephemeral schema/database.
+- HTTP server started locally and exercised via fetch/supertest.
+- Outbound HTTP dependencies stubbed via MSW (Mock Service Worker) or equivalent.
+
+Rules:
+- Must remain deterministic.
+- Should not require deployed infrastructure.
+- Must clean up resources they create (or use a safety-net cleanup mechanism).
+
+#### 7.2.3 Release / Green-Gate Tests (`test:release`)
+**Purpose:** Gate blue/green flip. Validate real end-to-end behavior in green.
+**Runs:** After deployment to green, before switching traffic.
+
+Rules:
+- NO mocking of real infra dependencies. Tests run against real endpoints and real infra configured for green.
+- Tests MUST be time-bounded (explicit timeouts) and resilient to eventual consistency via polling.
+- Tests MUST tag all written data with a `testRunId` to support cleanup and debugging.
+- If these fail, we do NOT flip traffic from blue to green.
+
+---
+
+### 7.3 Architecture Rules to Keep Tests Simple
+
+To avoid overcomplicated mocking, code MUST be structured so infrastructure is behind explicit boundaries.
+
+**Ports & Adapters**
+- Domain logic MUST NOT import cloud SDKs, DB clients, or fetch directly.
+- External integrations MUST live behind adapter interfaces ("ports"), e.g.:
+  - `QueuePort`, `BlobStorePort`, `RepositoryPort`, `SecretsPort`, `HttpClientPort`
+
+**Wiring**
+- The “composition root” (app bootstrap) wires adapters to ports.
+- Unit tests import domain/services and inject fakes instead of mocking SDKs.
+
+**Allowed mocking targets**
+- Mock or fake **our own port interfaces**.
+- Avoid mocking the internals of third-party SDK modules except as a last resort.
+
+---
+
+### 7.4 Structure and Naming
+
+- Mirror `src/` structure in `tests/` where reasonable.
+- Test file extensions: `*.test.ts` or `*.spec.ts`.
+- Prefer behavior-focused descriptions:
   - `it('returns 400 when payload is invalid', ...)`
+  - `it('persists the donation and emits a confirmation event', ...)`
 
-### 7.3 Coverage
-Guidance (adjust if repo specifies exact thresholds):
-- 80%+ line and branch coverage for core services.
+**Recommended folder layout**
+- `tests/unit/**`
+- `tests/component/**`
+- `tests/release/**` (or `tests/e2e/**` if your org uses that naming)
+
+**Recommended Jest scripts**
+- `test:unit` runs only unit tests
+- `test:component` runs only component tests
+- `test:release` runs only release tests
+
+Tests MUST NOT rely on execution order. Each test must set up its own state.
+
+---
+
+### 7.5 Coverage Standards
+
+Guidance (unless the repo specifies exact thresholds):
+- **80%+ line and branch coverage** for core services and domain modules.
 - Enforce thresholds in Jest config where applicable.
 - Do not write meaningless tests to inflate coverage.
 
-### 7.4 Integration Tests
-Backend:
-- Use in-memory or disposable test environments (test DB, local mocks).
-- Exercise endpoints via HTTP calls (or handler invocations) with realistic payloads.
+Coverage expectations by suite:
+- Unit tests: primary driver of coverage.
+- Component & release tests: focus on critical paths; not used to inflate coverage.
 
-Frontend:
-- Use React Testing Library patterns.
+---
+
+### 7.6 Integration / Release Testing Strategy (Green Environment)
+
+Release tests run after deployment to green and validate the system with real infrastructure.
+
+#### 7.6.1 Minimal Green-Gate Test Set (recommended)
+Keep the suite small (typically 10–30 tests max):
+
+1. **Readiness**
+   - `/health/ready` indicates service is ready and can reach required dependencies.
+2. **Happy-path API**
+   - Representative request that reads/writes expected data.
+3. **Async flow (if applicable)**
+   - Publish → consume → persist → (optional) emit.
+4. **Storage flow (if applicable)**
+   - Write → read back → metadata correct.
+5. **Auth/secrets access**
+   - Service can access required secrets/config and can authenticate to dependencies.
+6. **One failure mode**
+   - e.g., invalid payload returns correct error OR poison message handled correctly.
+
+#### 7.6.2 Eventual Consistency and Async Assertions
+For queues/background processing, tests MUST:
+- Use polling assertions (wait until condition true or timeout).
+- Use explicit timeouts (e.g., 30–90s max per async check).
+- Surface `testRunId` and correlation IDs in failures.
+
+---
+
+### 7.7 Database Strategy for Blue/Green and Tests
+
+Blue/green deployments typically share the same database. Deployment must not “overwrite” DBs; the risk is schema change.
+
+#### 7.7.1 Schema Change Rules (Expand/Contract)
+Migrations MUST be backward-compatible with the currently live version:
+- **Expand:** add new tables/columns/indexes first; keep old paths working.
+- Deploy green.
+- Flip traffic.
+- **Contract:** remove old columns/paths only after blue is gone and usage is removed.
+
+Breaking migrations MUST NOT be coupled to a single deploy step that could strand the live version.
+
+#### 7.7.2 Writing Data in Release Tests (Safe Data Marking)
+Release tests may write data. They MUST do so safely:
+
+- Every release test run MUST generate a `testRunId` (UUID) and attach it to:
+  - request headers (e.g., `X-Test-Run-Id`)
+  - message metadata (if publishing events)
+  - persisted records (either via marker columns or natural key prefixes)
+
+**Preferred approaches (choose one per service):**
+1. **Marker columns + TTL cleanup**
+   - Add `createdByTestRunId`, `createdAt`, optionally `expiresAt`.
+   - A cleanup job deletes expired test data.
+2. **Natural key prefixing**
+   - Use deterministic keys like `test_<testRunId>_<n>`.
+   - Cleanup deletes `test_*` older than a retention window.
+3. **Transactional rollback (component tests only)**
+   - Roll back DB writes per test when tests run in-process and synchronous.
+
+#### 7.7.3 Cleanup Requirements
+- Tests SHOULD attempt cleanup in `afterEach/afterAll`.
+- Tests MUST NOT rely on cleanup always running (CI may cancel jobs).
+- A safety-net cleanup MUST exist for release tests:
+  - TTL-based cleanup, scheduled cleanup, or a disposable test schema/table.
+
+---
+
+### 7.8 Frontend Testing (Next.js + React)
+
+We follow React Testing Library patterns:
 - Test behavior/outcomes, not implementation details.
+- Avoid testing internal component state directly.
+
+#### 7.8.1 Unit/Component (React)
+- Use React Testing Library for rendering and user interactions.
+- Prefer `userEvent` over direct DOM event dispatching.
+- Assert on what the user sees/does:
+  - text, roles, labels, navigation, disabled/enabled states.
+
+#### 7.8.2 Network and Data Fetching
+- Frontend tests MUST NOT call real APIs.
+- Stub network using MSW or equivalent.
+- For Next.js:
+  - Test server components and data loaders by mocking fetch at the boundary where data is requested.
+  - Prefer testing page behavior (rendered output) rather than Next internals.
+
+#### 7.8.3 Release Tests for Frontend (Green)
+If the frontend is deployed separately, release tests MAY include:
+- critical navigation paths
+- authentication flow smoke test
+- one critical API-backed interaction
+
+These tests run against green URLs and MUST use `testRunId` markers in requests.
+
+---
+
+### 7.9 Configuration and Environment
+
+- Tests MUST fail fast on missing required env vars.
+- Configuration parsing MUST be typed and validated (e.g., using a schema).
+- Release test environments MUST be isolated by configuration (green-only resources / namespaces).
+
+---
+
+### 7.10 Non-Goals / Anti-Patterns
+
+Avoid:
+- One giant “integration test” suite that runs everywhere.
+- Deep mocking of third-party SDKs across many tests.
+- Tests that depend on global state or execution order.
+- Writing large volumes of test data into shared environments.
+- Coupling schema-breaking migrations to a single deployment step.
 
 ---
 
