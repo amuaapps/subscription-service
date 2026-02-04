@@ -100,6 +100,31 @@ docker compose down
 docker compose down -v
 ```
 
+## Troubleshooting
+
+### Port 27017 Already in Use
+
+If you see `Bind for 0.0.0.0:27017 failed: port is already allocated`:
+
+```bash
+# Check what's using port 27017
+lsof -i :27017
+
+# If it's another Docker container, stop it
+docker ps
+docker stop <container-id>
+
+# Or stop all Docker containers
+docker compose down
+
+# Then try again
+docker compose up -d
+```
+
+### MongoDB Already Running
+
+If MongoDB is already running via Docker from a previous session, you can skip step 2 and go straight to `pnpm dev`.
+
 ## Azure Deployment
 
 This project is configured for Azure deployment. Infrastructure-as-code will be added in the `infra/azure/` directory.
