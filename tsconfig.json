@@ -17,7 +17,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@/payload-types": ["./payload-types.ts"]
+      "@/payload-types": ["./payload-types.ts"],
+      "@payload-config": ["./payload.config.ts"]
     },
     "plugins": [
       {
