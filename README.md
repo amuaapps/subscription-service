@@ -24,7 +24,7 @@ npm install
 docker compose up -d
 ```
 
-This starts MongoDB on port 27017 with a persistent named volume.
+This starts MongoDB on port **27018** with a persistent named volume (using 27018 to avoid conflicts with other MongoDB instances).
 
 ### 3. Start Development Server
 
@@ -84,11 +84,13 @@ Required variables:
 ## MongoDB Connection
 
 The local MongoDB instance runs with:
-- **Host:** localhost:27017
+- **Host:** localhost:27018
 - **Username:** admin
 - **Password:** password
 - **Database:** subscription-service
 - **Volume:** subscription-service-mongodb-data (persistent)
+
+**Note:** This project uses port 27018 instead of the default 27017 to allow running multiple MongoDB instances in parallel for different projects.
 
 ## Stopping Services
 
@@ -102,19 +104,19 @@ docker compose down -v
 
 ## Troubleshooting
 
-### Port 27017 Already in Use
+### Port 27018 Already in Use
 
-If you see `Bind for 0.0.0.0:27017 failed: port is already allocated`:
+If you see `Bind for 0.0.0.0:27018 failed: port is already allocated`:
 
 ```bash
-# Check what's using port 27017
-lsof -i :27017
+# Check what's using port 27018
+lsof -i :27018
 
-# If it's another Docker container, stop it
+# If it's this project's MongoDB container, stop it
 docker ps
-docker stop <container-id>
+docker stop subscription-service-mongo
 
-# Or stop all Docker containers
+# Or stop all Docker containers for this project
 docker compose down
 
 # Then try again
@@ -124,6 +126,10 @@ docker compose up -d
 ### MongoDB Already Running
 
 If MongoDB is already running via Docker from a previous session, you can skip step 2 and go straight to `pnpm dev`.
+
+### Running Multiple MongoDB Instances
+
+This project uses port **27018** to allow you to run multiple MongoDB instances in parallel. If you have another project using port 27017, both can run simultaneously without conflicts.
 
 ## Azure Deployment
 
