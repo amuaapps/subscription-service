@@ -1,15 +1,3 @@
-# Subscription Service
+# subscription-service
 
-A microservice for managing subscriptions.
-
-## Status
-
-🚧 Under development
-
-## Overview
-
-This service will handle subscription management for Amua Apps.
-
-## Getting Started
-
-Documentation coming soon.
+Placeholder repository for subscription service.
