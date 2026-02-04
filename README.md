@@ -131,6 +131,12 @@ If MongoDB is already running via Docker from a previous session, you can skip s
 
 This project uses port **27018** to allow you to run multiple MongoDB instances in parallel. If you have another project using port 27017, both can run simultaneously without conflicts.
 
+### Next.js SWC Version Warning
+
+You may see a warning: `Mismatching @next/swc version, detected: 15.5.7 while Next.js is on 15.5.x`
+
+This is a known issue where Next.js releases sometimes precede their matching SWC binaries. The warning is non-blocking and the application will work correctly. We use Next.js 15.5.7 which has matching SWC binaries available.
+
 ## Azure Deployment
 
 This project is configured for Azure deployment. Infrastructure-as-code will be added in the `infra/azure/` directory.
