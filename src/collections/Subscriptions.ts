@@ -7,12 +7,12 @@ export const Subscriptions: CollectionConfig = {
   },
   fields: [
     {
-      name: 'user',
+      name: 'supporter',
       type: 'relationship',
-      relationTo: 'users',
+      relationTo: 'supporters',
       required: true,
       admin: {
-        description: 'User who owns this subscription',
+        description: 'Supporter who owns this subscription',
       },
     },
     {
