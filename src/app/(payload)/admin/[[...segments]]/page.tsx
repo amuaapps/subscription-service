@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { RootPage, generatePageMetadata } from '@payloadcms/next/views'
-import configPromise from '@payload-config'
+import config from '@payload-config'
 import { importMap } from '../importMap'
 
 type Args = {
@@ -13,9 +13,9 @@ type Args = {
 }
 
 export const generateMetadata = ({ params, searchParams }: Args): Promise<Metadata> =>
-  generatePageMetadata({ config: configPromise, params, searchParams })
+  generatePageMetadata({ config, params, searchParams })
 
 const Page = ({ params, searchParams }: Args) =>
-  RootPage({ config: configPromise, params, searchParams, importMap })
+  RootPage({ config, params, searchParams, importMap })
 
 export default Page
