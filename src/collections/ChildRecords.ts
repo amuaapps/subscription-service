@@ -1,5 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
+const CHILD_ID_REGEX = /^[A-Z]{3}-\d{6}-\d{4}$/
+
 export const ChildRecords: CollectionConfig = {
   slug: 'childRecords',
   admin: {
@@ -24,7 +26,16 @@ export const ChildRecords: CollectionConfig = {
       type: 'text',
       required: true,
       admin: {
-        description: 'Unique child identifier',
+        description: 'Unique child identifier (format: ABC-123456-7890)',
+      },
+      validate: (value: unknown) => {
+        if (typeof value !== 'string' || !value) {
+          return 'Child ID is required'
+        }
+        if (!CHILD_ID_REGEX.test(value)) {
+          return 'Child ID must match format: ABC-123456-7890 (3 uppercase letters, dash, 6 digits, dash, 4 digits)'
+        }
+        return true
       },
     },
     {
@@ -74,7 +85,21 @@ export const ChildRecords: CollectionConfig = {
       name: 'sponsorshipEndDate',
       type: 'date',
       admin: {
-        description: 'Sponsorship end date (optional)',
+        description: 'Sponsorship end date (optional, must be >= start date)',
+      },
+      validate: (value: unknown, { data }: { data: Record<string, unknown> }) => {
+        if (!value) {
+          return true
+        }
+        if (typeof value !== 'string' || !data.sponsorshipStartDate || typeof data.sponsorshipStartDate !== 'string') {
+          return true
+        }
+        const endDate = new Date(value)
+        const startDate = new Date(data.sponsorshipStartDate)
+        if (endDate < startDate) {
+          return 'Sponsorship end date must be on or after the start date'
+        }
+        return true
       },
     },
     {
