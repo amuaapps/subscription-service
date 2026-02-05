@@ -110,5 +110,13 @@ export const ChildRecords: CollectionConfig = {
         description: 'Child first name',
       },
     },
+    {
+      name: 'createdByTestRunId',
+      type: 'text',
+      admin: {
+        position: 'sidebar',
+        description: 'Test run identifier for seeded data',
+      },
+    },
   ],
 }

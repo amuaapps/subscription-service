@@ -30,5 +30,13 @@ export const Supporters: CollectionConfig = {
         return true
       },
     },
+    {
+      name: 'createdByTestRunId',
+      type: 'text',
+      admin: {
+        position: 'sidebar',
+        description: 'Test run identifier for seeded data',
+      },
+    },
   ],
 }

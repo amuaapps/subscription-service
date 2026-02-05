@@ -9,6 +9,7 @@
     "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
     "generate:types": "payload generate:types",
     "generate:importmap": "payload generate:importmap",
+    "seed": "tsx scripts/seed.ts",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit"
   },
@@ -34,6 +35,7 @@
     "cross-env": "^7.0.3",
     "eslint": "^9.17.0",
     "eslint-config-next": "15.5.7",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2"
   },
   "engines": {
